@@ -1,5 +1,5 @@
-from django.shortcuts import render,redirect
 from django.http import JsonResponse
+from django.core.cache import cache
 from django.contrib.sessions.backends.db import SessionStore
 import os,faiss,ntpath,tempfile,tempfile,openai,numpy as np,json,random
 from django.core.mail import send_mail
@@ -9,6 +9,8 @@ from langchain.text_splitter import CharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 from django.views.decorators.csrf import csrf_exempt
 from pymongo import MongoClient
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth.models import User
 
 client = MongoClient('mongodb://localhost:27017/')
 db = client['auth']
@@ -48,28 +50,25 @@ def login(request):
         try:
             login_data = json.loads(request.body)
             email = login_data["email"].lower()
-            print("email = " + str(email))
             password = login_data["password"]
-            print("password = " + str(password))
-            subject = "Welcome to the DocGPT Website"
-            text = "Here you can upload your own files and search for the query and get the most relevent answer from your provided pdfs"
-            from_email = "vedanthelwatkar@gmail.com"
-            to_email = [str(email)]
-            send_mail(subject, text, from_email, to_email)
-            
-            user = collection.find_one({"email": email, "password": password})
-            if user:
-                message = "Login successful."
-                print("logged in")
-            else:
-                message = "Invalid email or password."
-            return JsonResponse({'message': message})
+
+            # Check if the user already exists in the database
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                # If the user does not exist, create a new User object
+                user = User(username=email, email=email)
+                user.set_password(password)  # Set the user's password
+            user.save()
+            refresh = RefreshToken.for_user(user)
+            token = str(refresh.token)
+
+            return JsonResponse({'message': 'Login successful.', 'token': token})
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
     else:
         return JsonResponse({'error': 'Invalid request method.'}, status=400)
-
-
+    
 @csrf_exempt
 def change(request):
     if request.method == 'POST':
@@ -202,7 +201,8 @@ def get_similar_docs(query, text_chunks, index, k=1):
         most_similar_doc_index = similar_doc_indices[0]
         most_similar_doc = text_chunks[most_similar_doc_index]
 
-    return distances, most_similar_doc_index, most_similar_doc
+    return most_similar_doc_index, most_similar_doc
+
 
 
 
@@ -240,8 +240,7 @@ def delete_vectorstore(request):
 
 @csrf_exempt
 def index(request):
-    text_chunks = None
-    vectorstore = None
+    request.session.clear()
     if request.method == "POST" and "pdfFiles" in request.FILES:
         # if os.path.isfile("vectorstore.index"):
         #     return JsonResponse({"message":"delete file first"})
@@ -262,11 +261,10 @@ def index(request):
 
         text = get_pdf_text(pdf_docs)
         text_chunks = get_text_chunks(text)
-        request.session['text_chunks'] = text_chunks
-        request.session['pdf_filenames'] = pdf_filenames
-        request.session.flush()
+        cache.set("text_chunks_cache", text_chunks)
+        print("Text chunks stored in cache:", text_chunks)  # Add this debug message
         print("Length of text_chunks:", len(text_chunks))
-        
+        print("Length of text_chunks:", len(text_chunks))
         if os.path.isfile("vectorstore.index"):
             vectorstore = load_vectorstore()
         else:
@@ -274,24 +272,27 @@ def index(request):
 
         for pdf_file in pdf_docs:
             os.remove(pdf_file)
-
         return JsonResponse({"message":"Vector Store Created"})
-        
+    return JsonResponse({"message":"nothing happened"})
+
+@csrf_exempt
+def bot(request):
     if request.method == "POST":
-        text_chunks = request.session.get('text_chunks', [])
-        print("Length of text_chunks in session:", len(text_chunks))
-        print("Contents of text_chunks in session:", text_chunks)
-        pdf_filenames = request.session.get('pdf_filenames', [])
-        vectorstore = load_vectorstore()
-        print("agaya bhai")
         data = json.loads(request.body)
         query = data.get("query", "").strip()
-        print(query)
-        
+        text_chunks = cache.get("text_chunks_cache", None)
+        print("Text chunks length after session.get = " + str((text_chunks)))
+        pdf_filenames = request.session.get('pdf_filenames', [])
+        vectorstore = load_vectorstore()
 
         if not query:
             return JsonResponse({"message": "Invalid query"})
 
+        text_chunks = cache.get("text_chunks_cache", None)
+        if text_chunks is not None:
+            print("not None")
+        else:
+            print("LOL")
         most_similar_doc_index, most_similar_doc = get_similar_docs(query, text_chunks, vectorstore)
         if most_similar_doc_index is not None:
             most_similar_doc = text_chunks[most_similar_doc_index]
@@ -306,6 +307,7 @@ def index(request):
             })
     return JsonResponse({"message": "nothing happened"})
 
+        
 def generate_response(user_input):
     prompt = "User: {}\nChatGPT:".format(user_input)
     response = openai.Completion.create(
@@ -338,3 +340,10 @@ def internet(request):
         result = generate_response(message)
         return JsonResponse({"result": result})
     return JsonResponse({"result": "nothing happened"})
+
+from django.http import HttpResponse
+
+def get_session_key(request):
+    session_key = request.session.session_key
+    print(session_key)
+    return HttpResponse(f"Session Key: {session_key}")

@@ -1,3 +1,4 @@
 venv
 _pycache_
 project/_pycache_
+vectorstore.index
