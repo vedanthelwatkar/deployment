@@ -1,17 +1,14 @@
-from django.contrib import admin
 from django.urls import path
-from app.views import index,internet,signup,login,change,reset,otp,delete_vectorstore,bot,get_session_key
+from app import views
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path("", index, name="index"),
-    path("internet/", internet, name="internet"),
-    path('signup/', signup, name="signup"),
-    path('login/', login, name="login"),
-    path('change/', change, name="change"),
-    path('reset/', reset, name="reset"),
-    path('otp/', otp, name="otp"),
-    path('delete_vectorstore/', delete_vectorstore, name='delete_vectorstore'),
-    path('bot/',bot,name="bot"),
-    path('get_session_key/', get_session_key, name='get_session_key'),
+    path('signup/', views.signup_view, name='signup'),
+    path('login/', views.login_view, name='login'),
+    path('change/', views.change_view, name='change'),
+    path('otp/', views.otp_view, name='otp'),
+    path('reset/', views.reset_view, name='reset'),
+    path('delete_vectorstore/', views.delete_vectorstore_view, name='delete_vectorstore'),
+    path('', views.index_view, name='index'),
+    path('bot/', views.bot_view, name='bot'),
+    path('internet/', views.internet_view, name='internet'),
 ]
