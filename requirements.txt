@@ -7,7 +7,8 @@ faiss-cpu
 unstructured
 pypdf2
 tiktoken
-sentence-transformers
 pymongo
 django-restframework
+djangorestframework-simplejwt
+django-cors-headers
 

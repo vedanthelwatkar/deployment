@@ -1,26 +1,15 @@
-# services.py
 import os
 import random
 from django.core.mail import send_mail
 import os 
 import faiss
 import ntpath
-import tempfile
 import openai
 import numpy as np
-import json
 import random
-from django.http import JsonResponse
-from django.test import RequestFactory
-from django.contrib.auth.models import User
-from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
-from dotenv import load_dotenv, find_dotenv
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
-from sentence_transformers import SentenceTransformer
-from pymongo import MongoClient
-from rest_framework_simplejwt.tokens import RefreshToken
 
 def send_otp(email):
     gen_otp = str(random.randint(100000, 999999))
@@ -50,20 +39,22 @@ def get_text_chunks(text):
     chunks = text_splitter.split_text(text)
     return chunks
 
-
+import requests
+model_id = "sentence-transformers/all-MiniLM-L6-v2"
+hf_token = "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"
+api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model_id}"
+headers = {"Authorization": f"Bearer {hf_token}"}
 def get_vectorstore(text_chunks):
-    model = SentenceTransformer("distilbert-base-nli-mean-tokens")
-    embedding_size = 768
+    response = requests.post(api_url, headers=headers, json={"inputs": text_chunks, "options":{"wait_for_model":True}})
+    response_json = response.json()
+
+    embeddings = response_json
 
     # Create an index
+    embedding_size = len(embeddings[0])
     index = faiss.IndexFlatIP(embedding_size)
 
-    # Embed and index the text chunks
-    embeddings = []
-    for chunk in text_chunks:
-        embedding = model.encode([chunk])[0]
-        embeddings.append(embedding)
-
+    # Convert embeddings to NumPy array and add them to the index
     vectors = np.array(embeddings, dtype=np.float32)
     index.add(vectors)
 
@@ -71,6 +62,26 @@ def get_vectorstore(text_chunks):
     faiss.write_index(index, "vectorstore.index")
 
     return index
+
+    # model = SentenceTransformer("distilbert-base-nli-mean-tokens")
+    # embedding_size = 768
+
+    # # Create an index
+    # index = faiss.IndexFlatIP(embedding_size)
+
+    # # Embed and index the text chunks
+    # embeddings = []
+    # for chunk in text_chunks:
+    #     embedding = model.encode([chunk])[0]
+    #     embeddings.append(embedding)
+
+    # vectors = np.array(embeddings, dtype=np.float32)
+    # index.add(vectors)
+
+    # # Save the index to a file
+    # faiss.write_index(index, "vectorstore.index")
+
+    # return index
 
 
 def load_vectorstore():
@@ -80,13 +91,19 @@ def load_vectorstore():
 
 
 def get_similar_docs(query, text_chunks, index, k=1):
-    model = SentenceTransformer("distilbert-base-nli-mean-tokens")
+    # Encode the query using Hugging Face API
+    model_id = "sentence-transformers/all-MiniLM-L6-v2"
+    hf_token = "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"
+    api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model_id}"
+    headers = {"Authorization": f"Bearer {hf_token}"}
 
-    query_embedding = model.encode([query])[0]
-    query_embedding = np.array(query_embedding, dtype=np.float32)
+    response = requests.post(api_url, headers=headers, json={"inputs": [query], "options": {"wait_for_model": True}})
+    response_json = response.json()
+    print(response.json)
+    query_embedding = response_json[0]
 
-    # Perform a similarity search to retrieve similar document indices and distances
-    distances, similar_doc_indices = index.search(query_embedding.reshape(1, -1), k)
+    # Perform a similarity search using Faiss
+    distances, similar_doc_indices = index.search(np.array([query_embedding], dtype=np.float32), k)
 
     # Check if the similar_doc_indices array is empty
     if len(similar_doc_indices) == 0:
@@ -105,7 +122,7 @@ def extract_answer_from_text(most_similar_doc):
     print("Sentences:", sentences)  # Print the sentences variable
 
     if len(sentences) >= 2:
-        return ". ".join(sentences[:2]).strip()
+        return ". ".join(sentences[:5]).strip()
     elif sentences:
         return sentences[0].strip()
     else:

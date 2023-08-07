@@ -14,14 +14,15 @@ from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
 
+load_dotenv(find_dotenv())
+openai_api_key = os.environ.get('OPENAI_API_KEY')
+openai.api_key = openai_api_key
+
 connection='mongodb+srv://vedanthelwatkar:vedant@docgpt.ptgdojj.mongodb.net/docgpt'
 client = MongoClient(connection)
 db = client['docgpt']
 collection = db['auth']
-
-load_dotenv(find_dotenv())
-openai_api_key = os.environ.get('OPENAI_API_KEY')
-openai.api_key = openai_api_key
+chat = db['chat']
 
 @csrf_exempt
 def signup(request):
@@ -37,13 +38,12 @@ def signup(request):
                 return JsonResponse({'message': 'AE'})
             else:
                 data_to_insert = {
-                "first_name": first_name,
-                "last_name": last_name,
-                "email": email,
-                "password": password,
-            }
-                collection.insert_one(data_to_insert)
-                
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": email,
+                    "password": password,
+                }
+                collection.insert_one(data_to_insert)          
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
         return JsonResponse({'message': 'Data received and saved successfully.'})
@@ -58,7 +58,9 @@ def login(request):
             email = login_data["email"].lower()
             password = login_data["password"]
 
-            # Check if the user already exists in the database
+            user = collection.find_one({"email": email,"password":password})
+            if user is None:
+                return JsonResponse({'error': 'Invalid email or password.'})
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
@@ -67,8 +69,8 @@ def login(request):
                 user.set_password(password)  # Set the user's password
             user.save()
             refresh = RefreshToken.for_user(user)
-            token = str(refresh.token)
-
+            token = str(refresh.access_token)
+            print(token)
             return JsonResponse({'message': 'Login successful.', 'token': token})
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
@@ -206,6 +208,15 @@ def bot(request):
         print(answer)
         reference = get_reference(most_similar_doc_index, text_chunks, pdf_filenames) + ".pdf"
         print(reference)
+        if answer is None:
+            return JsonResponse({"message":"server restarted"})
+        if answer is not None:
+            data_to_insert = {
+                    "query": query,
+                    "answer": answer,
+                    "reference": reference,
+                }
+            chat.insert_one(data_to_insert)
 
         return JsonResponse({
             "query": query,

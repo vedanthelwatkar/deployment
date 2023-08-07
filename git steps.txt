@@ -5,3 +5,7 @@ git add .
 git commit -m "commit"   
 git push 
 git push --set-upstream origin develop2
+
+jwt token
+pass hash
+google colab deploy
