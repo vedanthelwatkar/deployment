@@ -9,6 +9,26 @@ https://docs.djangoproject.com/en/4.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
+import logging
+# Configure logging to write to a log file
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename='app.log',  # Specify the log file name
+    filemode='a',        # Append mode (use 'w' to overwrite)
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+# Create a custom logger
+logger = logging.getLogger('my_app')  # 'my_app' is the logger name
+
+# Create custom log handlers (optional)
+console_handler = logging.StreamHandler()  # Output logs to console
+console_handler.setLevel(logging.DEBUG)    # Set the console log level
+console_formatter = logging.Formatter('%(levelname)s - %(message)s')
+console_handler.setFormatter(console_formatter)
+
+# Add the handlers to the logger
+logger.addHandler(console_handler)
 
 from pathlib import Path
 
@@ -25,7 +45,7 @@ SECRET_KEY = 'django-insecure-xdf%teeft@g*2he41b4f^srnh=qxhldl_16!v802v_)$!h4(%m
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -63,20 +83,17 @@ SIMPLE_JWT = {
 }
 
 MIDDLEWARE = [
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.security.SecurityMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    
+
 ]
 CORS_ALLOW_CREDENTIALS = True
 CSRF_COOKIE_HTTPONLY = True
-
-SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-SESSION_COOKIE_NAME = 'text_chunks_session'
 
 
 ROOT_URLCONF = 'project.urls'
@@ -102,6 +119,18 @@ WSGI_APPLICATION = 'project.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
+DATABASE = {
+'default': {
+'ENGINE': 'djongo',
+ "CLIENT": {
+           "name": 'docgpt',
+           "host": 'mongodb+srv://vedanthelwatkar:vedant@docgpt.ptgdojj.mongodb.net/docgpt',
+           "username": "vedanthelwatkar",
+           "password": "vedant",
+           "authMechanism": "SCRAM-SHA-1",
+        },
+    }
+}
 
 DATABASES = {
     'default': {
@@ -153,10 +182,14 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',  # Update this to your actual frontend origin
-]
+
 CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOWED_ORIGINS = [
+    'https://docgpt-c4f84.web.app',
+    'https://localhost:3000'
+]
+
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -168,6 +201,15 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+CORS_ALLOW_METHODS = (
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+)
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST ='smtp.gmail.com'

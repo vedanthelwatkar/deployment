@@ -9,20 +9,22 @@ from django.test import RequestFactory
 from dotenv import load_dotenv, find_dotenv
 import openai
 from django.views.decorators.csrf import csrf_exempt
-from pymongo import MongoClient
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
+import pyrebase
 
-load_dotenv(find_dotenv())
-openai_api_key = os.environ.get('OPENAI_API_KEY')
-openai.api_key = openai_api_key
-
-connection='mongodb+srv://vedanthelwatkar:vedant@docgpt.ptgdojj.mongodb.net/docgpt'
-client = MongoClient(connection)
-db = client['docgpt']
-collection = db['auth']
-chat = db['chat']
+firebaseConfig = {
+    "apiKey": "AIzaSyCeMopWfLyjpagZsFMC48-Oz7gYDUjz88I",
+    "authDomain": "docgpt-c4f84.firebaseapp.com",
+    "databaseURL": "https://docgpt-c4f84-default-rtdb.firebaseio.com",
+    "projectId": "docgpt-c4f84",
+    "storageBucket": "docgpt-c4f84.appspot.com",
+    "messagingSenderId": "404887318435",
+    "appId": "1:404887318435:web:b44df8233b78a231bdb416"
+}
+fb = pyrebase.initialize_app(firebaseConfig)
+db = fb.database()
 
 @csrf_exempt
 def signup(request):
@@ -33,23 +35,30 @@ def signup(request):
             last_name = signup_data["last_name"]
             email = signup_data["email"]
             password = signup_data["password"]
-            user = collection.find_one({"email": email})
-            if user is not None:
+
+            # Modify email for use as key
+            email_key = email.replace('.', '_')
+
+            # Check if email already exists
+            already_exists = db.child("users").child(email_key).get()
+            if already_exists.val():
                 return JsonResponse({'message': 'AE'})
-            else:
-                data_to_insert = {
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "email": email,
-                    "password": password,
-                }
-                collection.insert_one(data_to_insert)          
+
+            # Create user data
+            user_data = {
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+                "password":password
+            }
+            db.child("users").child(email_key).set(user_data)
+            print("User data saved in Realtime Database for email:", email)
+            return JsonResponse({'message': 'Data received and saved successfully.'})
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
-        return JsonResponse({'message': 'Data received and saved successfully.'})
     else:
         return JsonResponse({'error': 'Invalid request method.'}, status=400)
-    
+
 @csrf_exempt
 def login(request):
     if request.method == 'POST':
@@ -58,43 +67,55 @@ def login(request):
             email = login_data["email"].lower()
             password = login_data["password"]
 
-            user = collection.find_one({"email": email,"password":password})
-            if user is None:
-                return JsonResponse({'error': 'Invalid email or password.'})
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                # If the user does not exist, create a new User object
-                user = User(username=email, email=email)
-                user.set_password(password)  # Set the user's password
-            user.save()
-            refresh = RefreshToken.for_user(user)
-            token = str(refresh.access_token)
-            print(token)
-            return JsonResponse({'message': 'Login successful.', 'token': token})
+            users = db.child("users").get()
+            for user in users.each():
+                user_data = user.val()
+                if user_data.get("email") == email and user_data.get("password") == password:
+                    try:
+                        user_obj = User.objects.get(username=email)
+                    except User.DoesNotExist:
+                        user_obj = User(username=email, email=email)
+                        user_obj.set_password(password)  # Set the user's password
+                        user_obj.save()
+
+                    refresh = RefreshToken.for_user(user_obj)
+                    token = str(refresh.access_token)
+                    return JsonResponse({'message': 'Login successful.', 'token': token})
+            
+            return JsonResponse({'error': 'Invalid email or password.'})
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
     else:
         return JsonResponse({'error': 'Invalid request method.'}, status=400)
-    
+
 @csrf_exempt
 def change(request):
     if request.method == 'POST':
         try:
             cp = json.loads(request.body)
             email = cp["email"].lower()
-            print("email = " + str(email))
             password1 = cp["password"]
-            user = collection.find_one({"email": email})
-            if user is not None:
-                collection.update_one({"email": email}, {"$set": {"password": password1}})
+            
+            email_key = email.replace('.', '_')
+            user_response = db.child("users").child(email_key).get()
+            if user_response.val():
+                user_data = user_response.val()
+                user_data["password"] = password1
+                serializable_user_data = {
+                    "first_name": user_data.get("first_name", ""),
+                    "last_name": user_data.get("last_name", ""),
+                    "email": user_data.get("email", ""),
+                    "password": password1,
+                }
+                db.child("users").child(email_key).set(serializable_user_data)
+                return JsonResponse({'message': 'Password changed successfully.'})
             else:
                 return JsonResponse({'message': 'User not found.'})
-            return JsonResponse({'message': 'Password changed successfully.'})
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
     else:
         return JsonResponse({'error': 'Invalid request method.'}, status=400)
+
     
 @csrf_exempt
 def otp(request):
@@ -122,20 +143,33 @@ def reset(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            print(data)
             email = data["email"]
-            user_otp = data["otp"]
-            print(user_otp)
             new_password = data["password"]
-            user = collection.find_one({"email": email})
-            if user:
-                collection.update_one({"email": email}, {"$set": {"password": new_password}})
-                print("updated")
+
+            email_key = email.replace('.', '_')
+            user_response = db.child("users").child(email_key).get()
+            
+            if user_response.val():
+                user_data = user_response.val()  # Retrieve the user data as a dictionary
+                user_data["password"] = new_password
+
+                # Extract the necessary data and create a new dictionary
+                serializable_user_data = {
+                    "first_name": user_data.get("first_name", ""),
+                    "last_name": user_data.get("last_name", ""),
+                    "email": user_data.get("email", ""),
+                    "password": new_password,
+                }
+
+                db.child("users").child(email_key).set(serializable_user_data)
                 return JsonResponse({'message': 'Password updated successfully.'})
 
-            return JsonResponse({'message': 'User not found.'})
+            return JsonResponse({'message': 'User not found or invalid OTP.'})
         except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON data.'}, status=400)   
+            return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
+    else:
+        return JsonResponse({'error': 'Invalid request method.'}, status=400)
+
 
 def delete_vectorstore(request):
     if request.method == "POST":
@@ -216,8 +250,7 @@ def bot(request):
                     "answer": answer,
                     "reference": reference,
                 }
-            chat.insert_one(data_to_insert)
-
+            db.child("chat").child(query).set(data_to_insert)
         return JsonResponse({
             "query": query,
             "answer": answer,
@@ -226,6 +259,10 @@ def bot(request):
         })
     
     return JsonResponse({"message": "Invalid request method"})
+
+load_dotenv(find_dotenv())
+openai_api_key = os.environ.get('OPENAI_API_KEY')
+openai.api_key = openai_api_key
 
 def internet(request):
     if request.method == "POST":
