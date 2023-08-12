@@ -64,22 +64,14 @@ INSTALLED_APPS = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-}
-from datetime import timedelta
-import secrets
-random_key = ''.join(secrets.choice('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()') for _ in range(64))
-
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Set the token expiration time as you prefer.
-    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
-    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=120),
-    'ROTATE_REFRESH_TOKENS': False,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': random_key,  # Use your actual SECRET_KEY here.
-    'AUTH_HEADER_TYPES': ('Bearer',),
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        # ...
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+        # ...
+    ],
 }
 
 MIDDLEWARE = [
@@ -214,8 +206,8 @@ CORS_ALLOW_METHODS = (
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST ='smtp.gmail.com'
 EMAIL_PORT = 587
-EMAIL_HOST_USER = "vedanthelwatkar@gmail.com"
-EMAIL_HOST_PASSWORD = "avhqzuncljbtsouw"
+EMAIL_HOST_USER = "vedantph22@gmail.com"
+EMAIL_HOST_PASSWORD = "jgkyvuerkjgwoadf"
 EMAIL_USE_TLS = True
 
 X_FRAME_OPTIONS = 'ALLOWALL'

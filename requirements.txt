@@ -4,11 +4,9 @@ python-dotenv
 openai
 numpy
 faiss-cpu
-unstructured
 pypdf2
-tiktoken
-pymongo
 django-restframework
 djangorestframework-simplejwt
 django-cors-headers
-
+pyrebase4
+gensim

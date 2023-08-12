@@ -1,7 +1,7 @@
 import os
 import random
 from django.core.mail import send_mail
-import os 
+import os
 import faiss
 import ntpath
 import openai
@@ -93,7 +93,7 @@ def load_vectorstore():
 def get_similar_docs(query, text_chunks, index, k=1):
     # Encode the query using Hugging Face API
     model_id = "sentence-transformers/all-MiniLM-L6-v2"
-    hf_token = "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"
+    hf_token = "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"
     api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model_id}"
     headers = {"Authorization": f"Bearer {hf_token}"}
 

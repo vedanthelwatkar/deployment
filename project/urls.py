@@ -1,5 +1,6 @@
 from django.urls import path
 from app import views
+from app.views import HelloWorld
 
 urlpatterns = [
     path('signup/', views.signup_view, name='signup'),
@@ -11,4 +12,5 @@ urlpatterns = [
     path('', views.index_view, name='index'),
     path('bot/', views.bot_view, name='bot'),
     path('internet/', views.internet_view, name='internet'),
+    path('hello/', HelloWorld.as_view(), name='hello-world'),
 ]

@@ -215,7 +215,6 @@ def index(request):
         for pdf_file in pdf_docs:
             os.remove(pdf_file)
         return JsonResponse({"message": "Vector Store Created"})
-    
     return JsonResponse({"message": "nothing happened"})
 
 def bot(request):

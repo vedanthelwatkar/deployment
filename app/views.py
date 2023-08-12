@@ -1,6 +1,12 @@
 from django.views.decorators.csrf import csrf_exempt
 from .controllers import signup, login, change, otp, reset, delete_vectorstore, index, bot, internet
+from rest_framework.views import APIView
+from rest_framework.response import Response
 
+class HelloWorld(APIView):
+    def get(self, request):
+        return Response({"message": "Hello, world!"})
+    
 @csrf_exempt
 def signup_view(request):
     return signup(request)
