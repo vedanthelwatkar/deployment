@@ -1,11 +1,7 @@
 git init
-git remote add origin https://github.com/project-utils0/ra-bot-frontend.git  
-git checkout -b develop2
+git remote add origin https://github.com/project-utils0/ra-bot-e.git  
+git checkout -b backend
 git add . 
 git commit -m "commit"   
 git push 
-git push --set-upstream origin develop2
-
-jwt token
-pass hash
-google colab deploy
+git push --set-upstream origin backend
