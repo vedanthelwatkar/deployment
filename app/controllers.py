@@ -260,7 +260,7 @@ def bot(request):
     return JsonResponse({"message": "Invalid request method"})
 
 load_dotenv(find_dotenv())
-openai_api_key = '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'
+openai_api_key = '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'
 openai.api_key = openai_api_key
 
 def internet(request):
