@@ -39,7 +39,7 @@ def get_text_chunks(text):
 
 load_dotenv(find_dotenv())
 model_id = "sentence-transformers/all-MiniLM-L6-v2"
-hf_token = os.environ.get('HUGGINGFACE_API_KEY')
+hf_token = "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"
 api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model_id}"
 headers = {"Authorization": f"Bearer {hf_token}"}
 
