@@ -9,3 +9,4 @@ django-restframework
 djangorestframework-simplejwt
 django-cors-headers
 pyrebase4
+gunicorn
