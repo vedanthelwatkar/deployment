@@ -1,5 +1,4 @@
 django
-langchain
 python-dotenv
 openai
 numpy
