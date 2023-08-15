@@ -93,7 +93,7 @@ def get_similar_docs(query, text_chunks, index, k=1):
     response = requests.post(api_url, headers=headers, json={"inputs": [query], "options": {"wait_for_model": True}})
     response_json = response.json()
     print(response.json)
-    query_embedding = response_json[0]
+    query_embedding = response_json
 
     # Perform a similarity search using Faiss
     distances, similar_doc_indices = index.search(np.array([query_embedding], dtype=np.float32), k)
