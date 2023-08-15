@@ -50,7 +50,7 @@ def get_vectorstore(text_chunks):
     embeddings = response_json
 
     # Create an index
-    embedding_size = len(embeddings)
+    embedding_size = len(embeddings[0])
     index = faiss.IndexFlatIP(embedding_size)
 
     # Convert embeddings to NumPy array and add them to the index
@@ -93,7 +93,7 @@ def get_similar_docs(query, text_chunks, index, k=1):
     response = requests.post(api_url, headers=headers, json={"inputs": [query], "options": {"wait_for_model": True}})
     response_json = response.json()
     print(response.json)
-    query_embedding = response_json
+    query_embedding = response_json[0]
 
     # Perform a similarity search using Faiss
     distances, similar_doc_indices = index.search(np.array([query_embedding], dtype=np.float32), k)
