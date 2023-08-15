@@ -50,7 +50,7 @@ def get_vectorstore(text_chunks):
     embeddings = response_json
 
     # Create an index
-    embedding_size = len(embeddings[0])
+    embedding_size = len(embeddings)
     index = faiss.IndexFlatIP(embedding_size)
 
     # Convert embeddings to NumPy array and add them to the index
