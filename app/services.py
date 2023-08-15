@@ -7,9 +7,11 @@ import ntpath
 import openai
 import numpy as np
 import random
+import requests
 from django.core.mail import send_mail
 from PyPDF2 import PdfReader
-from langchain.text_splitter import CharacterTextSplitter
+from dotenv import load_dotenv, find_dotenv
+import textwrap
 
 def send_otp(email):
     gen_otp = str(random.randint(100000, 999999))
@@ -30,20 +32,17 @@ def get_pdf_text(pdf_docs):
 
 
 def get_text_chunks(text):
-    text_splitter = CharacterTextSplitter(
-        separator="\n",
-        chunk_size=1000,
-        chunk_overlap=200,
-        length_function=len
-    )
-    chunks = text_splitter.split_text(text)
+    chunk_size = 1000
+    chunks = textwrap.wrap(text, width=chunk_size)
     return chunks
 
-import requests
+
+load_dotenv(find_dotenv())
 model_id = "sentence-transformers/all-MiniLM-L6-v2"
-hf_token = "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"
+hf_token = os.environ.get('HUGGINGFACE_API_KEY')
 api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model_id}"
 headers = {"Authorization": f"Bearer {hf_token}"}
+
 def get_vectorstore(text_chunks):
     response = requests.post(api_url, headers=headers, json={"inputs": text_chunks, "options":{"wait_for_model":True}})
     response_json = response.json()
@@ -91,12 +90,6 @@ def load_vectorstore():
 
 
 def get_similar_docs(query, text_chunks, index, k=1):
-    # Encode the query using Hugging Face API
-    model_id = "sentence-transformers/all-MiniLM-L6-v2"
-    hf_token = "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"
-    api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model_id}"
-    headers = {"Authorization": f"Bearer {hf_token}"}
-
     response = requests.post(api_url, headers=headers, json={"inputs": [query], "options": {"wait_for_model": True}})
     response_json = response.json()
     print(response.json)
