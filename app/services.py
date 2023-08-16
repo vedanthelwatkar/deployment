@@ -39,16 +39,18 @@ def get_text_chunks(text):
 
 load_dotenv(find_dotenv())
 model_id = "sentence-transformers/all-MiniLM-L6-v2"
-hf_token = "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"
+hf_token = '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'
 api_url = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{model_id}"
 headers = {"Authorization": f"Bearer {hf_token}"}
 
 def get_vectorstore(text_chunks):
     response = requests.post(api_url, headers=headers, json={"inputs": text_chunks, "options":{"wait_for_model":True}})
     response_json = response.json()
-
+    print(response_json)
     embeddings = response_json
 
+    if not embeddings:
+        raise Exception("Embeddings list is empty")
     # Create an index
     embedding_size = len(embeddings[0])
     index = faiss.IndexFlatIP(embedding_size)
@@ -93,12 +95,7 @@ def get_similar_docs(query, text_chunks, index, k=1):
     response = requests.post(api_url, headers=headers, json={"inputs": [query], "options": {"wait_for_model": True}})
     response_json = response.json()
     print(response.json)
-    try:
-        query_embedding = response_json[0]
-    except KeyError as e:
-        # Handle the KeyError, log an error message, and potentially return a default value
-        print(f"Error extracting data from response: {e}")
-        return None, None
+    query_embedding = response_json[0]
 
     # Perform a similarity search using Faiss
     distances, similar_doc_indices = index.search(np.array([query_embedding], dtype=np.float32), k)
