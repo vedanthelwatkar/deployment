@@ -81,7 +81,7 @@ def login(request):
                     refresh = RefreshToken.for_user(user_obj)
                     token = str(refresh.access_token)
                     return JsonResponse({'message': 'Login successful.', 'token': token})
-            
+
             return JsonResponse({'error': 'Invalid email or password.'})
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
@@ -95,7 +95,7 @@ def change(request):
             cp = json.loads(request.body)
             email = cp["email"].lower()
             password1 = cp["password"]
-            
+
             email_key = email.replace('.', '_')
             user_response = db.child("users").child(email_key).get()
             if user_response.val():
@@ -116,7 +116,7 @@ def change(request):
     else:
         return JsonResponse({'error': 'Invalid request method.'}, status=400)
 
-    
+
 @csrf_exempt
 def otp(request):
     if request.method == 'POST':
@@ -148,7 +148,7 @@ def reset(request):
 
             email_key = email.replace('.', '_')
             user_response = db.child("users").child(email_key).get()
-            
+
             if user_response.val():
                 user_data = user_response.val()  # Retrieve the user data as a dictionary
                 user_data["password"] = new_password
@@ -185,6 +185,7 @@ def delete_vectorstore(request):
 text_chunks = None
 pdf_filenames = []
 
+import traceback
 def index(request):
     global text_chunks
     global pdf_filenames
@@ -194,33 +195,38 @@ def index(request):
 
         if not pdf_files:
             return JsonResponse({"message": "no input"})
+        try:
+            pdf_filenames = []
+            for pdf_file in pdf_files:
+                pdf_filename = pdf_file.name
+                with tempfile.NamedTemporaryFile(delete=False) as temp_pdf:
+                    temp_pdf.write(pdf_file.read())
+                    pdf_docs.append(temp_pdf.name)
+                    pdf_filenames.append(pdf_filename)
 
-        pdf_filenames = []
-        for pdf_file in pdf_files:
-            pdf_filename = pdf_file.name
-            with tempfile.NamedTemporaryFile(delete=False) as temp_pdf:
-                temp_pdf.write(pdf_file.read())
-                pdf_docs.append(temp_pdf.name)
-                pdf_filenames.append(pdf_filename)
+            text = get_pdf_text(pdf_docs)
+            text_chunks = get_text_chunks(text)
+            #print("text chunks generated length = " + str(len(text_chunks)))
 
-        text = get_pdf_text(pdf_docs)
-        text_chunks = get_text_chunks(text)
-        print("text chunks generated length = " + str(len(text_chunks)))
+            if os.path.isfile("vectorstore.index"):
+                vectorstore = load_vectorstore()
+            else:
+                vectorstore = get_vectorstore(text_chunks)
 
-        if os.path.isfile("vectorstore.index"):
-            vectorstore = load_vectorstore()
-        else:
-            vectorstore = get_vectorstore(text_chunks)
+            for pdf_file in pdf_docs:
+                os.remove(pdf_file)
+            return JsonResponse({"message": "Vector Store Created"})
+        except Exception as e:
+            print("Error:", repr(e))
+            traceback.print_exc()
+            return JsonResponse({"error":"Disk quota"})
 
-        for pdf_file in pdf_docs:
-            os.remove(pdf_file)
-        return JsonResponse({"message": "Vector Store Created"})
     return JsonResponse({"message": "nothing happened"})
 
 def bot(request):
     index_request = RequestFactory().post('/index/')
     index(index_request)
-    
+
     if request.method == "POST":
         data = json.loads(request.body)
         query = data.get("query", "").strip()
@@ -233,7 +239,7 @@ def bot(request):
             return JsonResponse({"message": "Text chunks not available"})
 
         most_similar_doc_index, most_similar_doc = get_similar_docs(query, text_chunks, vectorstore)
-        
+
         if most_similar_doc_index is None:
             return JsonResponse({"message": "No similar documents found"})
 
@@ -256,11 +262,11 @@ def bot(request):
             "reference": reference,
             "sentences": most_similar_doc
         })
-    
+
     return JsonResponse({"message": "Invalid request method"})
 
 load_dotenv(find_dotenv())
-openai_api_key = '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'
+openai_api_key = "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"
 openai.api_key = openai_api_key
 
 def internet(request):
